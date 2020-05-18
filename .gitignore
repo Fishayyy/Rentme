@@ -4,6 +4,9 @@
 *.ap_
 *.aab
 
+# Android Studio
+.idea
+
 # Protect the API Keys
 apikey.properties
 
