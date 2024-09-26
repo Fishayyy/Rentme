@@ -27,6 +27,7 @@ import com.google.android.material.snackbar.Snackbar;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.DocumentSnapshot;
+import com.google.firebase.firestore.FieldValue;
 import com.google.firebase.firestore.FirebaseFirestore;
 
 import java.util.ArrayList;
@@ -39,7 +40,6 @@ public class ViewListingsActivity extends AppCompatActivity
     private RecyclerView recyclerView;
     private ArrayList<Property> propertyList = new ArrayList<>();
     private ListViewAdapter adapter;
-    private RelativeLayout relativeLayout;
 
     @Override
     protected void onCreate(Bundle savedInstanceState)
@@ -50,7 +50,6 @@ public class ViewListingsActivity extends AppCompatActivity
         Log.d(TAG, "onCreate: started");
 
         recyclerView = (RecyclerView) findViewById(R.id.recyclerView);
-        relativeLayout = findViewById(R.id.relativeLayout);
 
         displayActivityName();
         getOwnedPropertiesList();
@@ -129,7 +128,10 @@ public class ViewListingsActivity extends AppCompatActivity
                     @Override
                     public void onClick(DialogInterface dialog, int which)
                     {
-                        FirebaseFirestore.getInstance().collection("properties").document(item.getDocumentReferenceID()).delete();
+                        FirebaseFirestore database = FirebaseFirestore.getInstance();
+                        database.collection("users").document(FirebaseAuth.getInstance().getUid())
+                                .update("ownerProperties", FieldValue.arrayRemove(item.getDocumentReferenceID()));
+                        database.collection("properties").document(item.getDocumentReferenceID()).delete();
                         adapter.removeItem(position);
                     }
                 });

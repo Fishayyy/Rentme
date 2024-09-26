@@ -52,11 +52,11 @@
         android:paddingEnd="15dp">
 
         <RelativeLayout
-            android:id="@+id/changePasswordLayout"
+            android:id="@+id/FullLayout"
             android:layout_width="match_parent"
             android:layout_height="wrap_content">
 
-            <ImageButton
+            <Button
                 android:id="@+id/uploadImageButton"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -65,10 +65,10 @@
                 android:layout_marginBottom="10dp"
                 android:adjustViewBounds="true"
                 android:background="@drawable/border"
+                android:text="@string/choose_images"
                 android:onClick="choosePhotoFromGallery"
                 android:padding="2dp"
-                android:scaleType="fitCenter"
-                android:src="@drawable/add_pic_icon" />
+                android:scaleType="fitCenter" />
 
             <TextView
                 android:id="@+id/monthlyText"

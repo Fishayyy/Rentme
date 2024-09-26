@@ -24,12 +24,12 @@ import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.CheckBox;
 import android.widget.EditText;
-import android.widget.ImageButton;
 import android.widget.ScrollView;
 import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.firebase.rentme.MainActivity;
 import com.firebase.rentme.R;
 import com.firebase.rentme.dialogs.SelectBathroomsDialog;
 import com.firebase.rentme.dialogs.SelectBedroomsDialog;
@@ -50,6 +50,8 @@ import com.google.firebase.storage.FirebaseStorage;
 import com.google.firebase.storage.StorageReference;
 import com.google.firebase.storage.UploadTask;
 
+import java.util.ArrayList;
+
 import java.util.Timer;
 import java.util.TimerTask;
 
@@ -68,10 +70,19 @@ public class CreatePropertyActivity extends AppCompatActivity implements SelectB
     private Property newProperty;
 
     private Uri imgURI;
-    private String photoURL = "";
+    private ArrayList<String> photoURLList = new ArrayList<>();
     private FirebaseAuth fAuth;
 
-    private ImageButton imageButton;
+    //Test for upload multiple images
+    int SELECT_PICTURES = 1;
+    //array to store multiple photos
+    private ArrayList<Uri> ImageList = new ArrayList<Uri>();
+    int upload_count = 0;
+    int photoURLCounter = 0;
+    int image = 0;
+
+
+    private Button uploadImageButton;
     private EditText editTextPrice;
     private Spinner categorySpinner;
     private TextView textViewBedrooms;
@@ -160,7 +171,7 @@ public class CreatePropertyActivity extends AppCompatActivity implements SelectB
 
     private void initButtons()
     {
-        imageButton = findViewById(R.id.uploadImageButton);
+        uploadImageButton = findViewById(R.id.uploadImageButton);
         buttonSelectBedrooms = findViewById(R.id.bedroomsButton);
         buttonSelectBedrooms.setOnClickListener(new View.OnClickListener()
         {
@@ -244,8 +255,10 @@ public class CreatePropertyActivity extends AppCompatActivity implements SelectB
 
     public void choosePhotoFromGallery(View v)
     {
-        Intent galleryIntent = new Intent(Intent.ACTION_PICK, android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
-        startActivityForResult(galleryIntent, GALLERY);
+        Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
+        intent.setType("image/*");
+        intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true);
+        startActivityForResult(Intent.createChooser(intent, "Select Picture"), SELECT_PICTURES);
     }
 
     //Results from choosePhotoFromGallery
@@ -256,17 +269,32 @@ public class CreatePropertyActivity extends AppCompatActivity implements SelectB
         if (resultCode == RESULT_CANCELED)
         {
             imgURI = null;
-            imageButton.setImageResource(R.drawable.add_pic_icon);
-            imageButton.setBackgroundResource(R.drawable.border);
+            ImageList.clear();
+            uploadImageButton.setBackgroundResource(R.drawable.border);
+            uploadImageButton.setText(R.string.choose_images);
             return;
         }
         if (requestCode == GALLERY)
         {
-            if (data != null)
+            if (resultCode == MainActivity.RESULT_OK)
             {
-                imgURI = data.getData();
-                imageButton.setImageURI(imgURI);
-                imageButton.setBackgroundResource(R.color.primary);
+                if (data.getClipData() != null)
+                {
+                    ImageList.clear();
+                    int count = data.getClipData().getItemCount();
+                    Log.i("count", String.valueOf(count));
+                    int currentImageSelected = 0;
+                    while (currentImageSelected < count)
+                    {
+                        imgURI = data.getClipData().getItemAt(currentImageSelected).getUri();
+                        Log.i("uri", imgURI.toString());
+                        ImageList.add(imgURI);
+                        currentImageSelected = currentImageSelected + 1;
+                    }
+                    uploadImageButton.setText(getResources().getString(R.string.num_images_selected, count));
+                    uploadImageButton.setBackgroundResource(R.drawable.success_background);
+                    Log.i("listsize", String.valueOf(ImageList.size()));
+                }
             }
         }
     }
@@ -276,12 +304,12 @@ public class CreatePropertyActivity extends AppCompatActivity implements SelectB
         boolean isValid = true;
         boolean scrollToTop = false;
 
-        if (imgURI == null)
+        if (ImageList.size() == 0)
         {
             isValid = false;
             scrollToTop = true;
-            imageButton.setImageResource(R.drawable.error_missing_photo);
-            imageButton.setBackgroundResource(R.drawable.error_background);
+            uploadImageButton.setBackgroundResource(R.drawable.error_background);
+            uploadImageButton.setText(R.string.image_selection_error);
         }
 
         if (editTextPrice.getText().toString().isEmpty())
@@ -346,6 +374,7 @@ public class CreatePropertyActivity extends AppCompatActivity implements SelectB
         {
             addPropertyButton.startAnimation();
             uploadImage();
+            image = ImageList.size();
         }
     }
 
@@ -422,27 +451,36 @@ public class CreatePropertyActivity extends AppCompatActivity implements SelectB
         button.setTextColor(Color.RED);
     }
 
+    //upload multiple images.
     private void uploadImage()
     {
-        storageReference.child(System.currentTimeMillis() + "." + getExtension(imgURI))
-                .putFile(imgURI)
-                .addOnSuccessListener(new OnSuccessListener<UploadTask.TaskSnapshot>()
-                {
-                    @Override
-                    public void onSuccess(UploadTask.TaskSnapshot taskSnapshot)
+        if (upload_count < ImageList.size())
+        {
+            storageReference.child(System.currentTimeMillis() + "." + getExtension(ImageList.get(image)))
+                    .putFile(ImageList.get(image))
+                    .addOnSuccessListener(new OnSuccessListener<UploadTask.TaskSnapshot>()
                     {
-                        retrieveImageURL(taskSnapshot.getStorage().getDownloadUrl());
-                    }
-                })
-                .addOnFailureListener(new OnFailureListener()
-                {
-                    @Override
-                    public void onFailure(@NonNull Exception exception)
+                        @Override
+                        public void onSuccess(UploadTask.TaskSnapshot taskSnapshot)
+                        {
+                            retrieveImageURL(taskSnapshot.getStorage().getDownloadUrl());
+                            photoURLCounter = ImageList.size();
+                            upload_count++;
+                            image--;
+                            uploadImage();
+                        }
+                    })
+                    .addOnFailureListener(new OnFailureListener()
                     {
-                        Toast.makeText(CreatePropertyActivity.this, "Error Uploading Image", Toast.LENGTH_LONG).show();
-                    }
-                });
+                        @Override
+                        public void onFailure(@NonNull Exception exception)
+                        {
+                            Toast.makeText(CreatePropertyActivity.this, "Error Uploading Image", Toast.LENGTH_LONG).show();
+                        }
+                    });
+        }
     }
+
 
     //Get the file extension so we can store the file with extension
     private String getExtension(Uri uri)
@@ -459,8 +497,12 @@ public class CreatePropertyActivity extends AppCompatActivity implements SelectB
             @Override
             public void onSuccess(Uri uri)
             {
-                photoURL = uri.toString();
-                initializeNewProperty();
+                //Add to photo url array (*Charles *Use to iterate through photos)
+                photoURLList.add(uri.toString());
+                if (photoURLList.size() == photoURLCounter)
+                {
+                    initializeNewProperty();
+                }
             }
         }).addOnFailureListener(new OnFailureListener()
         {
@@ -470,6 +512,7 @@ public class CreatePropertyActivity extends AppCompatActivity implements SelectB
                 retrieveImageURL(urlTask);
             }
         });
+
     }
 
     public void uploadProperty()
@@ -514,17 +557,18 @@ public class CreatePropertyActivity extends AppCompatActivity implements SelectB
                 {
                     newProperty = Property.getPropertyInstance();
                     newProperty.setTimeOfCreation(System.currentTimeMillis());
-                    newProperty.setOwnerName(user.getOwnerName());
-                    newProperty.setOwnerPhoneNum(user.getOwnerPhoneNum());
-                    newProperty.setOwnerEmail(user.getOwnerEmail());
                     newProperty.setHousingCategory(categorySpinner.getSelectedItem().toString());
                     newProperty.setPrice(Double.parseDouble(editTextPrice.getText().toString()));
-                    newProperty.setPhotoURL(photoURL);
+                    newProperty.setPhotoURL(photoURLList.get(0));
+                    newProperty.setPhotoURLList(photoURLList);
                     newProperty.setBio(editTextBio.getText().toString());
                     newProperty.setAddress(editTextAddress.getText().toString());
                     newProperty.setCity(editTextCity.getText().toString());
                     newProperty.setZipCode(editTextZipCode.getText().toString());
                     newProperty.setState(stateSpinner.getSelectedItem().toString());
+                    newProperty.setOwnerName(user.getOwnerName());
+                    newProperty.setOwnerPhoneNum(user.getOwnerPhoneNum());
+                    newProperty.setOwnerEmail(user.getOwnerEmail());
                     newProperty.setBedrooms(bedrooms);
                     newProperty.setBathrooms(bathrooms);
                     newProperty.setPetsAllowed(petsAllowedCheckBox.isChecked());
